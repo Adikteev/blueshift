@@ -2,5 +2,5 @@
                       :secret-key "OUQOJ1P3OJKkLsB224hrnzOcG8mZwT10PUKN49UO"}
       :bucket        "adikteev-secor"
       :key-pattern   ".*tsv-production.*"
-      :poll-interval {:seconds 600}}
+      :poll-interval {:seconds 60}}
  :telemetry {:reporters [uswitch.blueshift.telemetry/log-metrics-reporter]}}
