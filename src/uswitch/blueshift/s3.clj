@@ -3,6 +3,7 @@
             [clojure.tools.logging :refer (info error warn debug errorf)]
             [aws.sdk.s3 :refer (list-objects get-object delete-object)]
             [clojure.set :refer (difference)]
+            [clojure.string :as str]
             [clojure.core.async :refer (go-loop thread put! chan >!! <!! >! <! alts!! timeout close!)]
             [clojure.edn :as edn]
             [uswitch.blueshift.util :refer (close-channels clear-keys)]
@@ -79,11 +80,15 @@
             (assoc-if-nil :strategy "merge")
             (update-in [:data-pattern] re-pattern))))))
 
+(defn parent [directory]
+  (str/join "/" (drop-last (str/split directory #"/"))))
+
 (defn- step-scan
   [credentials bucket directory]
   (try
-    (let [fs (files credentials bucket directory)]
-      (if-let [manifest (manifest credentials bucket fs)]
+    (let [fs (files credentials bucket directory)
+          fs-parent (files credentials bucket (parent directory))]
+      (if-let [manifest (or (manifest credentials bucket fs) (manifest credentials bucket fs-parent))]
         (do
           (validate manifest)
           (let [data-files  (filter (fn [{:keys [key]}]
