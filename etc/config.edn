@@ -1,6 +1,6 @@
 {:s3 {:credentials   {:access-key "AKIAIRGDMVTYOGM3CK3Q"
                       :secret-key "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"}
-      :bucket        "ak2redshift"
-      :key-pattern   ".*"
+      :bucket        "adikteev-secor"
+      :key-pattern   ".*tsv-production.*"
       :poll-interval {:seconds 600}}
  :telemetry {:reporters [uswitch.blueshift.telemetry/log-metrics-reporter]}}

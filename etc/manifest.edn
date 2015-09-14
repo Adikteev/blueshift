@@ -1,0 +1,6 @@
+{:table        "events"
+ :pk-columns   ["id"]
+ :columns      ["id" "creative_id" "container_id" "ad_space_id" "ab_test" "country" "format_kind" "browser_type" "browser_version" "os" "engine" "at" "metric" "value" "duration" "cost" "turnover"]
+ :jdbc-url     "jdbc:postgresql://workflow.cfgqombdsntl.eu-west-1.redshift.amazonaws.com:5439/workflow?tcpKeepAlive=true&user=admin&password=Adikteev2013!"
+ :options      ["DELIMITER '\\t'" "IGNOREHEADER 1" "ESCAPE" "TRIMBLANKS"]
+ :data-pattern ".*[0-9_]+$"}
