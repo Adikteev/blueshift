@@ -1,7 +1,7 @@
 (ns uswitch.blueshift.s3
   (:require [com.stuartsierra.component :refer (Lifecycle system-map using start stop)]
             [clojure.tools.logging :refer (info error warn debug errorf)]
-            [aws.sdk.s3 :refer (list-objects get-object delete-object)]
+            [aws.sdk.s3 :refer (list-objects put-object get-object delete-object object-exists?)]
             [clojure.set :refer (difference)]
             [clojure.string :as str]
             [clojure.core.async :refer (go-loop thread put! chan >!! <!! >! <! alts!! timeout close!)]
@@ -83,6 +83,8 @@
 (defn parent [directory]
   (str/join "/" (drop-last (str/split directory #"/"))))
 
+(defn done-file [file] (str file ".done"))
+
 (defn- step-scan
   [credentials bucket directory]
   (try
@@ -92,7 +94,8 @@
         (do
           (validate manifest)
           (let [data-files  (filter (fn [{:keys [key]}]
-                                      (re-matches (:data-pattern manifest) key))
+                                      (and (re-matches (:data-pattern manifest) key)
+                                           (not (object-exists? credentials bucket (done-file key)))))
                                     fs)]
             (if (seq data-files)
               (do
@@ -114,6 +117,9 @@
 (def importing-files (counter [(str *ns*) "importing-files" "files"]))
 (def import-timer (timer [(str *ns*) "importing-files" "time"]))
 
+(defn mark-as-done [credentials bucket file]
+  (put-object credentials bucket (done-file file) "done"))
+
 (defn- step-load
   [credentials bucket table-manifest files]
   (let [redshift-manifest  (redshift/manifest bucket files)
@@ -127,7 +133,7 @@
          (info "Successfully imported" (count files) "files")
          (delete-object credentials bucket key)
          (dec! importing-files (count files))
-         {:state :delete
+         {:state :done
           :files files}
          (catch java.sql.SQLException e
            (error e "Error loading into" (:table table-manifest))
@@ -137,24 +143,24 @@
            {:state :scan
             :pause? true}))))
 
-(defn- step-delete
+(defn- step-mark-as-done
   [credentials bucket files]
   (do
     (doseq [key files]
-      (info "Deleting" (str "s3://" bucket "/" key))
+      (info "Marking as done" (str "s3://" bucket "/" key))
       (try
-        (delete-object credentials bucket key)
+        (mark-as-done credentials bucket key)
         (catch Exception e
-          (warn "Couldn't delete" key "  - ignoring"))))
+          (warn "Couldn't mark as done " key "  - ignoring"))))
     {:state :scan, :pause? true}))
 
 (defn- progress
   [{:keys [state] :as world}
    {:keys [credentials bucket directory] :as configuration}]
   (case state
-    :scan   (step-scan   credentials bucket directory )
-    :load   (step-load   credentials bucket           (:table-manifest world) (:files world))
-    :delete (step-delete credentials bucket           (:files world))))
+    :scan   (step-scan          credentials bucket directory )
+    :load   (step-load          credentials bucket           (:table-manifest world) (:files world))
+    :done   (step-mark-as-done  credentials bucket           (:files world))))
 
 (defrecord KeyWatcher [credentials bucket directory
                        poll-interval-seconds
